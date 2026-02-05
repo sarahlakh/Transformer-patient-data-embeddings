@@ -5,13 +5,6 @@ import pickle
 from collections import defaultdict
 import time
 
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import pickle
-from collections import defaultdict
-import time
-
 def prepare_sequences_with_temporal(df_char_path, bdd_path, output_path='patient_sequences_temporal.pkl'):
     """
     Crée des séquences de patients avec encodage temporel avancé

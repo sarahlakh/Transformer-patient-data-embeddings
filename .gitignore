@@ -1,5 +1,5 @@
-Bdd.pkl
-df_char.csv
+*.pkl
+*.csv
 *.png
 .venv
 __pycache__
