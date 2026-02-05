@@ -5,6 +5,249 @@ import pickle
 from collections import defaultdict
 import time
 
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import pickle
+from collections import defaultdict
+import time
+
+def prepare_sequences_with_temporal(df_char_path, bdd_path, output_path='patient_sequences_temporal.pkl'):
+    """
+    Crée des séquences de patients avec encodage temporel avancé
+    Prend en compte:
+    1. L'ordre des codes DANS une visite
+    2. L'ordre chronologique DES visites
+    3. Les intervalles de temps entre visites
+    4. La temporalité relative (1ère visite, etc.)
+    """
+    start_time = time.time()
+    
+    # 1. Chargement
+    print("1. Chargement des données...")
+    df_char = pd.read_csv(df_char_path)
+    with open(bdd_path, 'rb') as f:
+        df_visits = pickle.load(f)
+    
+    print(f"   - {len(df_char)} patients dans df_char")
+    print(f"   - {len(df_visits)} lignes de visites dans Bdd.pkl")
+    
+    # 2. Renommage et conversion des dates
+    print("2. Prétraitement des dates...")
+    df_visits.rename(columns={'BEN_IDT_ANO': 'ID_PATIENT'}, inplace=True)
+    df_visits['DATE'] = pd.to_datetime(df_visits['DATE'])
+    
+    # 3. TRI CRITIQUE : Trier une seule fois par patient et date
+    print("3. Tri des visites...")
+    df_visits.sort_values(['ID_PATIENT', 'DATE'], inplace=True)
+    
+    # 4. Grouper les visites par patient
+    print("4. Regroupement des visites par patient...")
+    grouped = df_visits.groupby('ID_PATIENT')
+    
+    # 5. Préparer les structures de résultats
+    patient_sequences = {}
+    pathway_labels = {}
+    temporal_info = {}  # Nouveau: stocke les infos temporelles
+    
+    # 6. Convertir df_char en dict pour accès O(1)
+    print("5. Création du dictionnaire patients...")
+    patient_info = df_char.set_index('ID_PATIENT')[['Pathway', 'AGE_DIAG', 'BC_SubType']].to_dict('index')
+    
+    # 7. Traiter chaque patient avec encodage temporel
+    print("6. Construction des séquences avec encodage temporel...")
+    processed = 0
+    skipped_no_visits = 0
+    skipped_no_year = 0
+    
+    for patient_id, visits in grouped:
+        processed += 1
+        if processed % 1000 == 0:
+            print(f"   Traités: {processed}/{len(grouped)} patients")
+        
+        # Vérifier si le patient existe dans df_char
+        if patient_id not in patient_info:
+            skipped_no_visits += 1
+            continue
+        
+        # Prendre les visites de la première année
+        start_date = visits['DATE'].iloc[0]
+        end_date = start_date + timedelta(days=365)
+        year_visits = visits[visits['DATE'] <= end_date]
+        
+        if len(year_visits) == 0:
+            skipped_no_year += 1
+            continue
+        
+        # Initialiser les structures pour ce patient
+        visit_vectors = []
+        time_intervals = []  # Jours depuis visite précédente
+        visit_positions = []  # Position dans la séquence (1ère, 2ème, etc.)
+        absolute_dates = []  # Date absolue
+        
+        # Parcourir les visites chronologiquement
+        prev_date = None
+        for visit_idx, (_, visit) in enumerate(year_visits.iterrows(), 1):
+            current_date = visit['DATE']
+            
+            # 1. Encoder la visite (GARDER L'ORDRE DES CODES)
+            codes_with_type = []
+            
+            # ORDRE FIXE IMPORTANT: CCAM → ICD10 → CIP → UC
+            # Cet ordre reflète une hiérarchie logique
+            if pd.notna(visit['COD_CCAM']):
+                codes_with_type.append(f"CCAM:{visit['COD_CCAM']}")
+            if pd.notna(visit['COD_ICD10']):
+                codes_with_type.append(f"ICD:{visit['COD_ICD10']}")
+            if pd.notna(visit['COD_CIP']):
+                codes_with_type.append(f"CIP:{visit['COD_CIP']}")
+            if pd.notna(visit['COD_UCD']):  # Note: correction de COD_UC à COD_UCD
+                codes_with_type.append(f"UC:{visit['COD_UCD']}")
+            
+            # NE PAS TRIER ! Garder l'ordre fixe défini ci-dessus
+            visit_representation = '|'.join(codes_with_type) if codes_with_type else 'NO_CODE'
+            
+            # 2. Ajouter information temporelle
+            temporal_suffix = ""
+            
+            # a) Intervalle depuis dernière visite
+            if prev_date is not None:
+                days_since_last = (current_date - prev_date).days
+                time_intervals.append(days_since_last)
+                
+                # Encoder l'intervalle en catégorie
+                if days_since_last <= 7:
+                    interval_cat = "WEEKLY"
+                elif days_since_last <= 30:
+                    interval_cat = "MONTHLY"
+                elif days_since_last <= 90:
+                    interval_cat = "QUARTERLY"
+                else:
+                    interval_cat = "SPORADIC"
+                
+                temporal_suffix += f"_INTERVAL:{interval_cat}"
+            else:
+                time_intervals.append(0)  # Première visite
+                temporal_suffix += "_FIRST"
+            
+            # b) Position dans la séquence
+            visit_positions.append(visit_idx)
+            
+            # Position relative (début/milieu/fin)
+            total_visits = len(year_visits)
+            position_ratio = visit_idx / total_visits
+            
+            if position_ratio <= 0.33:
+                position_cat = "EARLY"
+            elif position_ratio <= 0.67:
+                position_cat = "MID"
+            else:
+                position_cat = "LATE"
+            
+            temporal_suffix += f"_POS:{position_cat}"
+            
+            # c) Mois de l'année (saisonnalité)
+            month = current_date.month
+            if month in [12, 1, 2]:
+                season = "WINTER"
+            elif month in [3, 4, 5]:
+                season = "SPRING"
+            elif month in [6, 7, 8]:
+                season = "SUMMER"
+            else:
+                season = "FALL"
+            
+            temporal_suffix += f"_SEASON:{season}"
+            
+            # 3. Combiner visite + info temporelle
+            enhanced_visit = f"{visit_representation}{temporal_suffix}"
+            visit_vectors.append(enhanced_visit)
+            
+            # 4. Stocker date absolue pour analyses ultérieures
+            absolute_dates.append(current_date)
+            
+            # Mettre à jour pour visite suivante
+            prev_date = current_date
+        
+        # Stocker les séquences avec infos temporelles
+        patient_sequences[patient_id] = visit_vectors
+        pathway_labels[patient_id] = patient_info[patient_id]['Pathway']
+        
+        # Stocker les infos temporelles détaillées
+        temporal_info[patient_id] = {
+            'time_intervals': time_intervals,
+            'visit_positions': visit_positions,
+            'absolute_dates': absolute_dates,
+            'total_visits': len(year_visits),
+            'duration_days': (year_visits['DATE'].iloc[-1] - start_date).days if len(year_visits) > 1 else 0
+        }
+    
+    # 8. Calculer des statistiques temporelles globales
+    print("\n7. Calcul des statistiques temporelles...")
+    
+    all_intervals = []
+    for intervals in temporal_info.values():
+        all_intervals.extend(intervals['time_intervals'][1:])  # Exclure le 0 de la première visite
+    
+    if all_intervals:
+        print(f"   - Intervalle moyen entre visites: {np.mean(all_intervals):.1f} jours")
+        print(f"   - Intervalle médian: {np.median(all_intervals):.1f} jours")
+        print(f"   - Nombre moyen de visites/an: {np.mean([len(v) for v in patient_sequences.values()]):.1f}")
+    
+    # 9. Créer un vocabulaire temporel enrichi
+    print("\n8. Création du vocabulaire temporel...")
+    
+    # Extraire tous les tokens uniques
+    all_tokens = set()
+    for seq in patient_sequences.values():
+        for visit in seq:
+            tokens = visit.split('_')
+            for token in tokens:
+                all_tokens.add(token)
+    
+    print(f"   - Tokens uniques totaux: {len(all_tokens)}")
+    
+    # 10. Sauvegarder avec toutes les infos
+    print("\n9. Sauvegarde...")
+    with open(output_path, 'wb') as f:
+        pickle.dump({
+            'sequences': patient_sequences, 
+            'labels': pathway_labels,
+            'patient_info': patient_info,
+            'temporal_info': temporal_info,
+            'statistics': {
+                'mean_interval': np.mean(all_intervals) if all_intervals else 0,
+                'median_interval': np.median(all_intervals) if all_intervals else 0,
+                'mean_visits': np.mean([len(v) for v in patient_sequences.values()]),
+                'unique_tokens': len(all_tokens)
+            }
+        }, f)
+    
+    total_time = time.time() - start_time
+    print(f"\n✅ Terminé en {total_time:.1f} secondes ({total_time/60:.1f} minutes)")
+    print(f"📊 Statistiques:")
+    print(f"   - Patients avec séquences: {len(patient_sequences)}")
+    print(f"   - Patients sans visites dans df_char: {skipped_no_visits}")
+    print(f"   - Patients sans visites sur 1 an: {skipped_no_year}")
+    
+    # Afficher un exemple enrichi
+    if patient_sequences:
+        first_pid = list(patient_sequences.keys())[0]
+        print(f"\n📋 EXEMPLE AVEC ENCODAGE TEMPOREL (Patient {first_pid}):")
+        print(f"   Pathway: {pathway_labels[first_pid]}")
+        print(f"   Nombre de visites: {len(patient_sequences[first_pid])}")
+        print(f"   Visites encodées:")
+        for i, visit in enumerate(patient_sequences[first_pid][:3]):
+            print(f"     {i+1}. {visit}")
+        
+        # Afficher les intervalles
+        if first_pid in temporal_info:
+            intervals = temporal_info[first_pid]['time_intervals']
+            if len(intervals) > 1:
+                print(f"   Intervalles entre visites: {intervals[1:]} jours")
+    
+    return patient_sequences, pathway_labels, temporal_info
+
 def fix_existing_sequences(input_path, output_path):
     """Corrige les séquences existantes en séparant médical/temporel"""
     
@@ -55,8 +298,6 @@ def fix_existing_sequences(input_path, output_path):
             'temporal_features': data.get('temporal_features', {})
         }, f)
 
-# extract_medical_sequences.py
-import pickle
 import re
 from collections import Counter
 
@@ -295,9 +536,14 @@ def analyze_medical_sequences(seq_path):
 
 if __name__ == "__main__":
     # Option 1: Séquences médicales pures
+    patient_seqs, labels, temporal = prepare_sequences_with_temporal(
+        df_char_path='df_char.csv',
+        bdd_path='Bdd.pkl',
+        output_path='patient_sequences_temporal.pkl'
+    )
     print("OPTION 1: Séquences médicales pures")
     medical_seqs = extract_pure_medical_sequences(
-        input_path="fixed_sequences.pkl",
+        input_path="patient_sequences_temporal.pkl",
         output_path="medical_sequences_pure.pkl",
         max_visits=30
     )
