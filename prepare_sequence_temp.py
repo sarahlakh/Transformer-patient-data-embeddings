@@ -530,7 +530,7 @@ def analyze_medical_sequences(seq_path):
 if __name__ == "__main__":
     # Option 1: Séquences médicales pures
     patient_seqs, labels, temporal = prepare_sequences_with_temporal(
-        df_char_path='df_char.csv',
+        df_char_path='df_char(1).csv',
         bdd_path='Bdd.pkl',
         output_path='patient_sequences_temporal.pkl'
     )

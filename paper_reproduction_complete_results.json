@@ -1,0 +1,285 @@
+{
+  "clustering": {
+    "skipgram": {
+      "silhouette_mean": "0.0080045555",
+      "silhouette_std": "0.0016265607",
+      "davies_mean": 8.309880950901777,
+      "davies_std": 0.21466744657758863
+    },
+    "med2vec": {
+      "silhouette_mean": "0.31615394",
+      "silhouette_std": "0.005011201",
+      "davies_mean": 1.0022935876923937,
+      "davies_std": 0.008600338452076
+    },
+    "deep_patient": {
+      "silhouette_mean": "0.2889585",
+      "silhouette_std": "0.0070348126",
+      "davies_mean": 1.2239333574091291,
+      "davies_std": 0.023585279792412657
+    }
+  },
+  "clinical_relevance": {
+    "skipgram": {
+      "Partial Mastectomy": {
+        "p_value": 0.18173267117790276,
+        "significant": "False",
+        "v_cramer": 0.02362375202540265
+      },
+      "Mastectomy": {
+        "p_value": 0.42444245801833025,
+        "significant": "False",
+        "v_cramer": 0.016747265446863405
+      },
+      "Axillary Surgery": {
+        "p_value": 0.36805505745140127,
+        "significant": "False",
+        "v_cramer": 0.018086527598307915
+      },
+      "Chemotherapy Y/N": {
+        "p_value": 0.23016781910179826,
+        "significant": "False",
+        "v_cramer": 0.021926123620538085
+      },
+      "Chemotherapy Setting": {
+        "p_value": 0.7911779131618049,
+        "significant": "False",
+        "v_cramer": 0.01602660806174131
+      },
+      "Chemotherapy Regimen": {
+        "p_value": 0.16880774925905373,
+        "significant": "False",
+        "v_cramer": 0.030838832783206878
+      },
+      "Targeted Therapy Y/N": {
+        "p_value": 0.07516517727494482,
+        "significant": "False",
+        "v_cramer": 0.02910359460489063
+      },
+      "Targeted Therapy Setting": {
+        "p_value": 0.14066784172675983,
+        "significant": "False",
+        "v_cramer": 0.02377928296441162
+      },
+      "Targeted therapy Regimen": {
+        "p_value": 0.19359819245685717,
+        "significant": "False",
+        "v_cramer": 0.026619340621882787
+      },
+      "Radiotherapy Y/N": {
+        "p_value": 0.09384841135975708,
+        "significant": "False",
+        "v_cramer": 0.02782742739532259
+      },
+      "Radiotherapy Setting": {
+        "p_value": 0.06290949101184548,
+        "significant": "False",
+        "v_cramer": 0.0312795456760081
+      },
+      "Endocrine Therapy Y/N": {
+        "p_value": 0.13995135792162308,
+        "significant": "False",
+        "v_cramer": 0.025368889345190025
+      },
+      "Endocrine Therapy Setting": {
+        "p_value": 0.11346133609658222,
+        "significant": "False",
+        "v_cramer": 0.024706680157742515
+      },
+      "Endocrine Therapy Regimen": {
+        "p_value": 0.2408401599071492,
+        "significant": "False",
+        "v_cramer": 0.025524791819881317
+      },
+      "BC Sub Type": {
+        "p_value": 0.06277610138373532,
+        "significant": "False",
+        "v_cramer": 0.03128726412635152
+      },
+      "Nodal status": {
+        "p_value": 0.13700173504184687,
+        "significant": "False",
+        "v_cramer": 0.028199181157030496
+      },
+      "Metastatic": {
+        "p_value": 0.12296438802748727,
+        "significant": "False",
+        "v_cramer": 0.02619027398176097
+      }
+    },
+    "med2vec": {
+      "Partial Mastectomy": {
+        "p_value": 0.2842272080273619,
+        "significant": "False",
+        "v_cramer": 0.02029064974711438
+      },
+      "Mastectomy": {
+        "p_value": 0.550497606039239,
+        "significant": "False",
+        "v_cramer": 0.013977243486143046
+      },
+      "Axillary Surgery": {
+        "p_value": 0.4440763765463591,
+        "significant": "False",
+        "v_cramer": 0.01629942692189874
+      },
+      "Chemotherapy Y/N": {
+        "p_value": 0.8283340995668227,
+        "significant": "False",
+        "v_cramer": 0.007851066300312242
+      },
+      "Chemotherapy Setting": {
+        "p_value": 0.8336209515162321,
+        "significant": "False",
+        "v_cramer": 0.015133130326972376
+      },
+      "Chemotherapy Regimen": {
+        "p_value": 0.4889214006566319,
+        "significant": "False",
+        "v_cramer": 0.0246896180564998
+      },
+      "Targeted Therapy Y/N": {
+        "p_value": 0.5302949647223807,
+        "significant": "False",
+        "v_cramer": 0.01440833194599531
+      },
+      "Targeted Therapy Setting": {
+        "p_value": 0.8441005670510697,
+        "significant": "False",
+        "v_cramer": 0.010704765165775449
+      },
+      "Targeted therapy Regimen": {
+        "p_value": 0.2782268008653449,
+        "significant": "False",
+        "v_cramer": 0.024748799548439535
+      },
+      "Radiotherapy Y/N": {
+        "p_value": 0.051636833371467364,
+        "significant": "False",
+        "v_cramer": 0.0311431680957024
+      },
+      "Radiotherapy Setting": {
+        "p_value": 0.048979431556689317,
+        "significant": "True",
+        "v_cramer": 0.03216913629919866
+      },
+      "Endocrine Therapy Y/N": {
+        "p_value": 0.24149285819090138,
+        "significant": "False",
+        "v_cramer": 0.021564677287361063
+      },
+      "Endocrine Therapy Setting": {
+        "p_value": 0.12841493859499037,
+        "significant": "False",
+        "v_cramer": 0.024178745376909762
+      },
+      "Endocrine Therapy Regimen": {
+        "p_value": 0.48039114580271336,
+        "significant": "False",
+        "v_cramer": 0.021230401688810692
+      },
+      "BC Sub Type": {
+        "p_value": 0.009103977361634472,
+        "significant": "True",
+        "v_cramer": 0.037349204708401626
+      },
+      "Nodal status": {
+        "p_value": 0.005818295914034731,
+        "significant": "True",
+        "v_cramer": 0.03855854995835093
+      },
+      "Metastatic": {
+        "p_value": 0.111068139108621,
+        "significant": "False",
+        "v_cramer": 0.02681848902066096
+      }
+    },
+    "deep_patient": {
+      "Partial Mastectomy": {
+        "p_value": 0.3614266811142224,
+        "significant": "False",
+        "v_cramer": 0.018250211678122803
+      },
+      "Mastectomy": {
+        "p_value": 0.7100364979615998,
+        "significant": "False",
+        "v_cramer": 0.010586451338935732
+      },
+      "Axillary Surgery": {
+        "p_value": 0.16171549032257232,
+        "significant": "False",
+        "v_cramer": 0.024418732466579596
+      },
+      "Chemotherapy Y/N": {
+        "p_value": 0.7832154375029833,
+        "significant": "False",
+        "v_cramer": 0.008942579004148675
+      },
+      "Chemotherapy Setting": {
+        "p_value": 0.11073115382845515,
+        "significant": "False",
+        "v_cramer": 0.029097974037486252
+      },
+      "Chemotherapy Regimen": {
+        "p_value": 0.9525273782251021,
+        "significant": "False",
+        "v_cramer": 0.014822758845961534
+      },
+      "Targeted Therapy Y/N": {
+        "p_value": 0.32898258462640734,
+        "significant": "False",
+        "v_cramer": 0.01907491079551888
+      },
+      "Targeted Therapy Setting": {
+        "p_value": 0.39369463499859103,
+        "significant": "False",
+        "v_cramer": 0.018297766827576015
+      },
+      "Targeted therapy Regimen": {
+        "p_value": 0.8180119826300858,
+        "significant": "False",
+        "v_cramer": 0.015474056526280885
+      },
+      "Radiotherapy Y/N": {
+        "p_value": 0.6053236107931387,
+        "significant": "False",
+        "v_cramer": 0.012817616820607981
+      },
+      "Radiotherapy Setting": {
+        "p_value": 0.8962357497141084,
+        "significant": "False",
+        "v_cramer": 0.013541494570081095
+      },
+      "Endocrine Therapy Y/N": {
+        "p_value": 0.10387940110329905,
+        "significant": "False",
+        "v_cramer": 0.027223714583645982
+      },
+      "Endocrine Therapy Setting": {
+        "p_value": 0.20264868352333443,
+        "significant": "False",
+        "v_cramer": 0.0220706275096643
+      },
+      "Endocrine Therapy Regimen": {
+        "p_value": 0.2708225445478375,
+        "significant": "False",
+        "v_cramer": 0.02489746569068542
+      },
+      "BC Sub Type": {
+        "p_value": 0.8851510263599094,
+        "significant": "False",
+        "v_cramer": 0.013858388705046553
+      },
+      "Nodal status": {
+        "p_value": 0.5581517682574235,
+        "significant": "False",
+        "v_cramer": 0.02000001280640321
+      },
+      "Metastatic": {
+        "p_value": 0.3964546696971509,
+        "significant": "False",
+        "v_cramer": 0.017401038143582345
+      }
+    }
+  }
+}

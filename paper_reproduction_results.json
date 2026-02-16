@@ -1,0 +1,38 @@
+{
+  "paper_reproduction": "CMBS2024 - Encoding breast cancer patients' medical pathways",
+  "execution_time_minutes": 53.73720401922862,
+  "n_patients": 2000,
+  "vocab_size": 4,
+  "methods_tested": [
+    "Skip-Gram",
+    "Med2Vec",
+    "Deep Patient"
+  ],
+  "results": {
+    "Skip-Gram": {
+      "silhouette": 0.4246019124984741,
+      "davies_bouldin": 0.7671661401322027,
+      "expected_paper": {
+        "silhouette": 0.6,
+        "davies": 0.34
+      }
+    },
+    "Med2Vec": {
+      "silhouette": 0.3467041552066803,
+      "davies_bouldin": 0.984042988277929,
+      "expected_paper": {
+        "silhouette": 0.55,
+        "davies": 0.3
+      }
+    },
+    "Deep Patient": {
+      "silhouette": 0.6969236731529236,
+      "davies_bouldin": 1.0129234703413657,
+      "expected_paper": {
+        "silhouette": 0.98,
+        "davies": 0.13
+      }
+    }
+  },
+  "conclusion": "Comparable aux r\u00e9sultats du papier. Deep Patient devrait avoir le meilleur clustering mais la pire pertinence clinique."
+}
