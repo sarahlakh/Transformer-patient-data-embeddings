@@ -4,7 +4,7 @@ import numpy as np
 from collections import Counter, defaultdict
 import re
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, davies_bouldin_score
 from sklearn.model_selection import train_test_split
 
 def create_fixed_length_features():
@@ -282,7 +282,7 @@ def create_embeddings_from_features(feature_data, clf):
     return embeddings_dict
 
 def cluster_pathway_embeddings():
-    """Clustering sur les nouveaux embeddings"""
+    """Clustering sur les nouveaux embeddings avec Davies-Bouldin"""
     
     print("\n🎯 CLUSTERING SUR NOUVEAUX EMBEDDINGS")
     print("="*50)
@@ -300,28 +300,72 @@ def cluster_pathway_embeddings():
     
     print(f"Embeddings shape: {emb_matrix.shape}")
     
-    # Clustering avec K=10
+    # Clustering avec différents K pour trouver l'optimal
     from sklearn.cluster import KMeans
     
-    kmeans = KMeans(n_clusters=10, random_state=42, n_init=25)
+    print("\n🔍 Recherche du K optimal...")
+    
+    # Tester différents K
+    k_range = range(2, min(16, emb_matrix.shape[0] // 10 + 1))
+    silhouette_scores = []
+    davies_bouldin_scores = []
+    
+    for k in k_range:
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=25, max_iter=300)
+        cluster_labels = kmeans.fit_predict(emb_matrix)
+        
+        # Calculer les scores
+        from sklearn.metrics import silhouette_score
+        sil_score = silhouette_score(emb_matrix, cluster_labels)
+        db_score = davies_bouldin_score(emb_matrix, cluster_labels)
+        
+        silhouette_scores.append(sil_score)
+        davies_bouldin_scores.append(db_score)
+        
+        print(f"   K={k}: Silhouette={sil_score:.3f}, Davies-Bouldin={db_score:.3f}")
+    
+    # Meilleur K selon Silhouette (plus haut = mieux)
+    best_k_sil = k_range[np.argmax(silhouette_scores)]
+    # Meilleur K selon Davies-Bouldin (plus bas = mieux)
+    best_k_db = k_range[np.argmin(davies_bouldin_scores)]
+    
+    print(f"\n📊 Meilleur K (Silhouette): {best_k_sil}")
+    print(f"📊 Meilleur K (Davies-Bouldin): {best_k_db}")
+    
+    # Choisir le K final (compromis)
+    if best_k_sil == best_k_db:
+        optimal_k = best_k_sil
+        print(f"\n✅ Consensus: K optimal = {optimal_k}")
+    else:
+        # Prendre la moyenne ou le K recommandé par Silhouette
+        optimal_k = best_k_sil
+        print(f"\n⚠️  Désaccord entre métriques, utilisation de K={optimal_k} (basé sur Silhouette)")
+    
+    # Clustering final avec K optimal
+    print(f"\n🔨 Clustering final avec K={optimal_k}...")
+    kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=25)
     cluster_labels = kmeans.fit_predict(emb_matrix)
     
-    # Évaluation
+    # Évaluation finale
     from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
     
     ari = adjusted_rand_score(pathways, cluster_labels)
     nmi = normalized_mutual_info_score(pathways, cluster_labels)
+    sil_final = silhouette_score(emb_matrix, cluster_labels)
+    db_final = davies_bouldin_score(emb_matrix, cluster_labels)
     
-    print(f"\n📈 RÉSULTATS CLUSTERING:")
+    print(f"\n📈 RÉSULTATS FINAUX CLUSTERING:")
     print(f"   ARI: {ari:.3f}")
     print(f"   NMI: {nmi:.3f}")
+    print(f"   Silhouette Score: {sil_final:.3f}")
+    print(f"   Davies-Bouldin Index: {db_final:.3f}")
     
     # Analyser la correspondance clusters ↔ pathways
     from collections import Counter
     
     print(f"\n🔍 CORRESPONDANCE CLUSTERS ↔ PATHWAYS:")
     
-    for cluster_id in range(10):
+    for cluster_id in range(optimal_k):
         # Indices des patients dans ce cluster
         cluster_indices = np.where(cluster_labels == cluster_id)[0]
         
@@ -334,6 +378,24 @@ def cluster_pathway_embeddings():
             for pathway, count in pathway_counts.most_common(3):
                 proportion = count / len(cluster_indices)
                 print(f"      Pathway {pathway}: {count} ({proportion:.1%})")
+    
+    # Sauvegarder les résultats
+    results = {
+        'k_range': list(k_range),
+        'silhouette_scores': silhouette_scores,
+        'davies_bouldin_scores': davies_bouldin_scores,
+        'optimal_k': optimal_k,
+        'cluster_labels': cluster_labels.tolist(),
+        'ari': ari,
+        'nmi': nmi,
+        'silhouette': sil_final,
+        'davies_bouldin': db_final
+    }
+    
+    with open('rf_clustering_results.pkl', 'wb') as f:
+        pickle.dump(results, f)
+    
+    print(f"\n📁 Résultats sauvegardés dans 'rf_clustering_results.pkl'")
     
     return cluster_labels
 
@@ -354,8 +416,8 @@ def main():
     print("\n3. 🧬 Création des embeddings...")
     embeddings_dict = create_embeddings_from_features(feature_data, clf)
     
-    # 4. Clustering
-    print("\n4. 🎯 Clustering...")
+    # 4. Clustering avec Davies-Bouldin
+    print("\n4. 🎯 Clustering avec analyse Davies-Bouldin...")
     cluster_labels = cluster_pathway_embeddings()
     
     print(f"\n" + "="*60)
@@ -423,7 +485,7 @@ def quick_test():
 
 if __name__ == "__main__":
     print("Options:")
-    print("1. Pipeline complet")
+    print("1. Pipeline complet (avec Davies-Bouldin)")
     print("2. Test rapide avec 5 features")
     print("3. Juste créer les features")
     

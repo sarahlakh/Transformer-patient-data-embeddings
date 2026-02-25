@@ -80,6 +80,7 @@ def explore_pickle(file_path, max_items=5):
 
 # Explorer les fichiers principaux
 files_to_explore = [
+    'patient_sequences_temporal.pkl',
     'medical_sequences_pure.pkl',
     'medical_embeddings.pkl',
     'pathway_embeddings_from_rf.pkl',

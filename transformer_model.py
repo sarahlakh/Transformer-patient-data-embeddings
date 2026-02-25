@@ -131,7 +131,7 @@ class TemporalPatientDataset(Dataset):
         Charge directement depuis le fichier pickle
         Plus besoin de passer les dicts séparément
         """
-        print(f"📂 Chargement des données depuis {data_path}...")
+        print(f" Chargement des données depuis {data_path}...")
         
         # Charger toutes les données
         with open(data_path, 'rb') as f:
@@ -331,7 +331,7 @@ class MedicalTransformer(nn.Module):
         return patient_embedding
     
 
-def load_temporal_dataset(data_path='medical_sequences_pure.pkl', max_seq_length=100):
+def load_temporal_dataset(data_path='patient_sequences_temporal.pkl', max_seq_length=100):
     """Fonction simplifiée pour charger le dataset avec séquences médicales pures"""
     
     print(f"📂 Chargement du dataset depuis {data_path}...")
@@ -572,15 +572,16 @@ def train_real_temporal_model():
     print("=" * 60)
     
     # 1. Charger les données
-    dataset = load_temporal_dataset('medical_sequences_pure.pkl', max_seq_length=50)
+    dataset = load_temporal_dataset('patient_sequences_temporal.pkl', max_seq_length=30)
     
     # Créer modèle
-    model = MedicalTransformer(
-        vocab_size=dataset.vocab_size,
-        embed_dim=128,
-        num_heads=4,
-        num_layers=3,
-        max_seq_length=50
+    model = TemporalTransformer(
+        code_vocab_size=dataset.code_encoder.classes_.shape[0] + 1,
+        temporal_vocab_size=dataset.temporal_encoder.classes_.shape[0] + 1,
+        embed_dim=64,
+        num_heads=2,
+        num_layers=2,
+        max_seq_length=30
     )
     
     # Split train/val
@@ -624,9 +625,9 @@ def train_real_temporal_model():
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
     criterion = nn.CrossEntropyLoss()
     
-    # 4. Boucle d'entraînement - CORRECTION ICI
+    # 4. Boucle d'entraînement
     print("\n3. 🔥 Début de l'entraînement...")
-    num_epochs = 10
+    num_epochs = 5
     
     for epoch in range(num_epochs):
         model.train()
@@ -646,7 +647,6 @@ def train_real_temporal_model():
             
             batch_size, seq_len = input_ids.shape
             
-            # CORRECTION: Masquer 15% des tokens MAIS calculer correctement
             mask_prob = 0.15
             mask = torch.rand(input_ids.shape, device=device) < mask_prob
             mask = mask & (input_ids != 0)  # Ne pas masquer le padding
@@ -658,15 +658,11 @@ def train_real_temporal_model():
             # Forward
             patient_emb = model(masked_input, attention_mask, temporal_ids, metadata)
             
-            # CORRECTION: Prédire pour CHAQUE position, pas seulement une
-            # Étendre patient_emb pour toutes les positions de séquence
             patient_emb_expanded = patient_emb.unsqueeze(1).expand(-1, seq_len, -1)  # [16, 30, 96]
             
             # Calculer logits pour chaque position
             logits_all_positions = torch.matmul(patient_emb_expanded, model.code_embedding.weight.T)  # [16, 30, vocab_size]
             
-            # CORRECTION: Sélectionner seulement les tokens masqués
-            # Aplatir pour l'indexation
             logits_flat = logits_all_positions.reshape(-1, logits_all_positions.size(-1))  # [16*30, vocab_size]
             targets_flat = input_ids.reshape(-1)  # [16*30]
             mask_flat = mask.reshape(-1)  # [16*30]
@@ -729,28 +725,7 @@ def train_real_temporal_model():
         
         avg_val_loss = val_loss / max(val_count, 1)
         print(f"📊 Validation Loss: {avg_val_loss:.4f}")
-        
-        # Sauvegarde checkpoint
-        if (epoch + 1) % 5 == 0:
-            checkpoint = {
-                'epoch': epoch + 1,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': avg_val_loss,
-                'code_vocab_size': model.code_embedding.num_embeddings,
-                'temporal_vocab_size': model.temporal_embedding.num_embeddings if hasattr(model, 'temporal_embedding') else 0,
-                'code_encoder': dataset.code_encoder,
-                'temporal_encoder': dataset.temporal_encoder,
-                'config': {
-                    'embed_dim': 96,
-                    'num_heads': 4,
-                    'num_layers': 2,
-                    'max_seq_length': 30
-                }
-            }
-            
-            torch.save(checkpoint, f'temporal_model_checkpoint_epoch_{epoch+1}.pth')
-            print(f"💾 Checkpoint sauvegardé: epoch_{epoch+1}")
+    
     
     # 5. Sauvegarde finale
     print("\n4. 💾 Sauvegarde du modèle final...")
@@ -1049,13 +1024,13 @@ def train_medical_model_safe():
     
     # 2. Charger dataset
     print("\n📂 Chargement des données...")
-    dataset = SimpleMedicalDataset('medical_sequences_pure.pkl', max_len=30)
+    dataset = SimpleMedicalDataset('medical_sequences_pure.pkl')
     
     # 3. Créer modèle
-    print("\n🧠 Création du modèle...")
+    print("\n!! Création du modèle...")
     model = MedicalTransformer(
         vocab_size=dataset.vocab_size,
-        embed_dim=64,  # Petit pour test rapide
+        embed_dim=64,  
         num_heads=2,
         num_layers=2,
         max_seq_length=30
@@ -1187,74 +1162,293 @@ def train_medical_model_safe():
             'num_heads': 2,
             'num_layers': 2
         }
-    }, 'medical_model_safe.pth')
+    }, 'temporal_model.pth')
     
     print("✅ Entraînement terminé!")
     print("📁 Modèle sauvegardé: medical_model_safe.pth")
     
     return model, dataset
 
-# Version encore PLUS simple pour déboguer
-def train_minimal():
-    """Version minimale pour déboguer"""
+def train_temporal_model_safe():
+    """Version ultra-simplifiée et sécurisée pour le modèle temporel"""
     
-    print("🧪 VERSION MINIMALE POUR DÉBOGUER")
+    print("🔥 ENTRAÎNEMENT SÉCURISÉ DU MODÈLE TEMPOREL")
+    print("="*60)
     
-    # 1. Créer des données factices pour tester
-    vocab_size = 100
-    batch_size = 4
-    seq_len = 20
+    # 1. Créer un dataset simplifié pour données temporelles
+    class SimpleTemporalDataset(torch.utils.data.Dataset):
+        def __init__(self, data_path, max_len=30):
+            with open(data_path, 'rb') as f:
+                data = pickle.load(f)
+            
+            self.sequences = data['sequences']
+            self.temporal_features = data.get('temporal_features', {})
+            self.patient_info = data.get('patient_info', {})
+            self.patient_ids = list(self.sequences.keys())
+            self.max_len = max_len
+            
+            # Vocabulaire des codes médicaux
+            all_codes = ['[PAD]', '[MASK]']
+            for seq in self.sequences.values():
+                all_codes.extend(seq[:max_len])
+            
+            self.code_encoder = LabelEncoder()
+            self.code_encoder.fit(all_codes)
+            self.code_vocab_size = len(self.code_encoder.classes_)
+            
+            # Vocabulaire temporel
+            all_temporal = ['[PAD]', '[MASK]']
+            for pid in self.patient_ids:
+                if pid in self.temporal_features and 'temporal_seq' in self.temporal_features[pid]:
+                    for temp_str in self.temporal_features[pid]['temporal_seq'][:max_len]:
+                        if temp_str:
+                            parts = temp_str.split('|')
+                            all_temporal.extend([p for p in parts if p])
+            
+            self.temporal_encoder = LabelEncoder()
+            self.temporal_encoder.fit(all_temporal)
+            self.temporal_vocab_size = len(self.temporal_encoder.classes_)
+            
+            print(f"Dataset créé:")
+            print(f"  - Patients: {len(self.patient_ids)}")
+            print(f"  - Vocab codes: {self.code_vocab_size}")
+            print(f"  - Vocab temporel: {self.temporal_vocab_size}")
+            print(f"  - Max sequence length: {max_len}")
+        
+        def __len__(self):
+            return len(self.patient_ids)
+        
+        def __getitem__(self, idx):
+            pid = self.patient_ids[idx]
+            seq = self.sequences[pid]
+            
+            # Tronquer si trop long
+            if len(seq) > self.max_len:
+                seq = seq[:self.max_len]
+            
+            # Encoder les codes (+2 car [PAD]=0, [MASK]=1)
+            encoded_codes = self.code_encoder.transform(seq) + 2
+            
+            # Padding codes
+            if len(encoded_codes) < self.max_len:
+                encoded_codes = np.pad(encoded_codes, (0, self.max_len - len(encoded_codes)))
+            
+            # Features temporelles
+            encoded_temporal = np.zeros(self.max_len, dtype=int)
+            if pid in self.temporal_features and 'temporal_seq' in self.temporal_features[pid]:
+                temp_seq = self.temporal_features[pid]['temporal_seq']
+                if len(temp_seq) > self.max_len:
+                    temp_seq = temp_seq[:self.max_len]
+                
+                for i, temp_str in enumerate(temp_seq):
+                    if temp_str and i < self.max_len:
+                        parts = temp_str.split('|')
+                        if parts and parts[0]:
+                            try:
+                                encoded_temporal[i] = self.temporal_encoder.transform([parts[0]])[0] + 2
+                            except:
+                                encoded_temporal[i] = 1  # [MASK] si inconnu
+            
+            # Métadonnées (âge simple)
+            metadata = [0.0, 0.0]
+            if pid in self.patient_info:
+                age = self.patient_info[pid].get('AGE_DIAG')
+                if age is not None:
+                    try:
+                        metadata[0] = min(float(age) / 100.0, 1.0)
+                    except:
+                        metadata[0] = 0.5
+            
+            # Masque d'attention
+            real_len = min(len(seq), self.max_len)
+            attention_mask = np.zeros(self.max_len, dtype=int)
+            attention_mask[:real_len] = 1
+            
+            return {
+                'input_ids': torch.tensor(encoded_codes, dtype=torch.long),
+                'temporal_ids': torch.tensor(encoded_temporal, dtype=torch.long),
+                'attention_mask': torch.tensor(attention_mask, dtype=torch.long),
+                'metadata': torch.tensor(metadata, dtype=torch.float),
+                'patient_id': pid
+            }
     
-    # Données factices
-    input_ids = torch.randint(2, vocab_size, (batch_size, seq_len))
-    attention_mask = torch.ones(batch_size, seq_len)
+    # 2. Charger dataset
+    print("\n📂 Chargement des données temporelles...")
+    dataset = SimpleTemporalDataset('patient_sequences_temporal.pkl', max_len=30)
     
-    print(f"Données factices:")
-    print(f"  input_ids shape: {input_ids.shape}")
-    print(f"  attention_mask shape: {attention_mask.shape}")
-    
-    # 2. Modèle minimal
-    model = MedicalTransformer(
-        vocab_size=vocab_size,
-        embed_dim=32,
+    # 3. Créer modèle temporel
+    print("\n🧠 Création du modèle TemporalTransformer...")
+    model = TemporalTransformer(
+        code_vocab_size=dataset.code_vocab_size,
+        temporal_vocab_size=dataset.temporal_vocab_size,
+        metadata_dim=2,
+        embed_dim=64,
         num_heads=2,
-        num_layers=1,
-        max_seq_length=seq_len
+        num_layers=2,
+        max_seq_length=30
     )
     
-    device = torch.device('cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"  Device: {device}")
     model.to(device)
     
-    # 3. Test forward pass
-    print("\n🧠 Test forward pass...")
+    # 4. DataLoader avec collate_fn simple
+    def temporal_collate(batch):
+        """Fonction de collate personnalisée"""
+        return {
+            'input_ids': torch.stack([item['input_ids'] for item in batch]),
+            'temporal_ids': torch.stack([item['temporal_ids'] for item in batch]),
+            'attention_mask': torch.stack([item['attention_mask'] for item in batch]),
+            'metadata': torch.stack([item['metadata'] for item in batch]),
+            'patient_id': [item['patient_id'] for item in batch]
+        }
+    
+    dataloader = DataLoader(
+        dataset, 
+        batch_size=8, 
+        shuffle=True, 
+        collate_fn=temporal_collate,
+        num_workers=0
+    )
+    
+    # 5. Configurer l'optimizer et la loss
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    criterion = nn.CrossEntropyLoss(ignore_index=0)  # Ignorer [PAD]
+    
+    print("\n🔥 Début de l'entraînement temporel...")
+    
+    for epoch in range(5):
+        model.train()
+        total_loss = 0
+        total_masked = 0
+        
+        for batch_idx, batch in enumerate(dataloader):
+            # Transférer sur device
+            input_ids = batch['input_ids'].to(device)
+            temporal_ids = batch['temporal_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            metadata = batch['metadata'].to(device)
+            
+            batch_size, seq_len = input_ids.shape
+            
+            # 1. Créer des targets (copie de input_ids)
+            targets = input_ids.clone()
+            
+            # 2. Créer un masque aléatoire (15% des tokens non-padding)
+            mask_prob = 0.15
+            mask = torch.rand(input_ids.shape, device=device) < mask_prob
+            mask = mask & (input_ids != 0)  # Ne pas masquer [PAD]
+            
+            # 3. Remplacer les tokens masqués par [MASK] token (index 1)
+            masked_input = input_ids.clone()
+            masked_input[mask] = 1  # [MASK] token
+            
+            # 4. Forward pass avec toutes les features
+            patient_emb = model(masked_input, attention_mask, temporal_ids, metadata)
+            
+            # 5. Projeter pour obtenir les logits
+            patient_emb_expanded = patient_emb.unsqueeze(1).expand(-1, seq_len, -1)
+            logits = torch.matmul(patient_emb_expanded, model.code_embedding.weight.T)
+            
+            # 6. Calculer la loss sur tokens masqués
+            logits_flat = logits.reshape(-1, logits.size(-1))
+            targets_flat = targets.reshape(-1)
+            mask_flat = mask.reshape(-1)
+            
+            if mask_flat.sum() > 0:
+                masked_logits = logits_flat[mask_flat]
+                masked_targets = targets_flat[mask_flat]
+                
+                loss = criterion(masked_logits, masked_targets)
+                
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+                
+                total_loss += loss.item()
+                total_masked += mask_flat.sum().item()
+            
+            # Afficher progression
+            if (batch_idx + 1) % 10 == 0:
+                avg_loss = total_loss / (batch_idx + 1)
+                print(f"  Batch {batch_idx+1}/{len(dataloader)}, Loss: {avg_loss:.4f}")
+        
+        # Afficher résultats de l'epoch
+        avg_loss = total_loss / len(dataloader)
+        print(f"\n✅ Epoch {epoch+1}/5:")
+        print(f"   Loss moyenne: {avg_loss:.4f}")
+    
+    # 6. Test du modèle
+    print("\n🧪 Test du modèle temporel...")
+    model.eval()
+    
     with torch.no_grad():
-        embeddings = model(input_ids, attention_mask)
+        test_batch = next(iter(dataloader))
+        input_ids = test_batch['input_ids'].to(device)
+        temporal_ids = test_batch['temporal_ids'].to(device)
+        attention_mask = test_batch['attention_mask'].to(device)
+        metadata = test_batch['metadata'].to(device)
+        
+        embeddings = model(input_ids, attention_mask, temporal_ids, metadata)
         print(f"  Embeddings shape: {embeddings.shape}")
-        print(f"  ✅ Forward pass réussi!")
+        print(f"  Exemple embedding: {embeddings[0][:5]}...")
     
-    # 4. Test avec backward pass
-    print("\n🔙 Test backward pass...")
-    model.train()
+    # 7. Sauvegarder le modèle
+    print("\n💾 Sauvegarde du modèle temporel...")
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'code_vocab_size': dataset.code_vocab_size,
+        'temporal_vocab_size': dataset.temporal_vocab_size,
+        'code_encoder': dataset.code_encoder,
+        'temporal_encoder': dataset.temporal_encoder,
+        'config': {
+            'embed_dim': 64,
+            'num_heads': 2,
+            'num_layers': 2,
+            'max_seq_length': 30
+        }
+    }, 'temporal_model_safe.pth')
     
-    # Créer une loss simple
-    dummy_target = torch.randn(embeddings.shape)
-    loss_fn = nn.MSELoss()
+    print("✅ Entraînement temporel terminé!")
+    print("📁 Modèle sauvegardé: temporal_model_safe.pth")
     
-    # Forward
-    embeddings = model(input_ids, attention_mask)
-    loss = loss_fn(embeddings, dummy_target)
+    # 8. Générer les embeddings temporels
+    print("\n🧬 Génération des embeddings temporels pour clustering...")
     
-    # Backward
-    loss.backward()
-    print(f"  ✅ Backward pass réussi!")
-    print(f"  Loss: {loss.item():.4f}")
+    dataloader_all = DataLoader(
+        dataset, 
+        batch_size=32, 
+        shuffle=False,
+        collate_fn=temporal_collate,
+        num_workers=0
+    )
     
-    # Vérifier les gradients
-    for name, param in model.named_parameters():
-        if param.grad is not None:
-            print(f"  Gradient {name}: {param.grad.abs().mean():.6f}")
+    embeddings_dict = {}
+    with torch.no_grad():
+        for batch in dataloader_all:
+            input_ids = batch['input_ids'].to(device)
+            temporal_ids = batch['temporal_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            metadata = batch['metadata'].to(device)
+            patient_ids = batch['patient_id']
+            
+            patient_emb = model(input_ids, attention_mask, temporal_ids, metadata)
+            
+            for i, pid in enumerate(patient_ids):
+                embeddings_dict[pid] = patient_emb[i].cpu().numpy()
     
-    return model
+    # Sauvegarder les embeddings temporels
+    with open('temporal_embeddings.pkl', 'wb') as f:
+        pickle.dump({
+            'embeddings': embeddings_dict,
+            'patient_ids': list(embeddings_dict.keys())
+        }, f)
+    
+    print(f"✅ {len(embeddings_dict)} embeddings temporels générés!")
+    print("📁 Fichier: temporal_embeddings.pkl")
+    
+    return model, dataset
 
 # 6. Génération des embeddings pour clustering
 def generate_embeddings(model, dataset, device='cpu'):
@@ -1369,21 +1563,15 @@ def diagnose_dataset():
 
 # Script principal
 if __name__ == "__main__":
-    print("Options:")
-    print("1. Entraînement sécurisé complet")
-    print("2. Version minimale de débogage")
-    print("3. Tester seulement le forward/backward")
     
-    choice = input("Choix (1-3): ")
-    
-    if choice == "1":
-        model, dataset = train_medical_model_safe()
+    #model, dataset = train_medical_model_safe()
+    model, dataset = train_temporal_model_safe()
         
-        # Générer des embeddings pour clustering
-        print("\n🧬 Génération des embeddings pour clustering...")
+    # Générer des embeddings pour clustering
+    print("\n🧬 Génération des embeddings pour clustering...")
         
-        # Charger tout le dataset dans un DataLoader
-        dataloader = DataLoader(
+    # Charger tout le dataset dans un DataLoader
+    """dataloader = DataLoader(
             dataset, 
             batch_size=32, 
             shuffle=False,
@@ -1392,56 +1580,31 @@ if __name__ == "__main__":
                 'attention_mask': torch.stack([item['attention_mask'] for item in b]),
                 'patient_id': [item['patient_id'] for item in b]
             }
-        )
+    )
         
-        device = next(model.parameters()).device
-        model.eval()
+    device = next(model.parameters()).device
+    model.eval()
         
-        embeddings_dict = {}
-        with torch.no_grad():
-            for batch in dataloader:
-                input_ids = batch['input_ids'].to(device)
-                attention_mask = batch['attention_mask'].to(device)
-                patient_ids = batch['patient_id']
+    embeddings_dict = {}
+    with torch.no_grad():
+        for batch in dataloader:
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            patient_ids = batch['patient_id']
+            
+            patient_emb = model(input_ids, attention_mask)
                 
-                patient_emb = model(input_ids, attention_mask)
-                
-                for i, pid in enumerate(patient_ids):
-                    embeddings_dict[pid] = patient_emb[i].cpu().numpy()
+            for i, pid in enumerate(patient_ids):
+                embeddings_dict[pid] = patient_emb[i].cpu().numpy()
         
         # Sauvegarder les embeddings
-        with open('medical_embeddings_safe.pkl', 'wb') as f:
+    with open('medical_embeddings.pkl', 'wb') as f:
             pickle.dump({
                 'embeddings': embeddings_dict,
                 'patient_ids': list(embeddings_dict.keys())
             }, f)
         
-        print(f"✅ {len(embeddings_dict)} embeddings générés!")
-        print("📁 Fichier: medical_embeddings_safe.pkl")
-        
-    elif choice == "2":
-        train_minimal()
-    elif choice == "3":
-        # Juste tester forward/backward
-        vocab_size = 50
-        model = MedicalTransformer(
-            vocab_size=vocab_size,
-            embed_dim=16,
-            num_heads=1,
-            num_layers=1,
-            max_seq_length=10
-        )
-        
-        # Test simple
-        input_ids = torch.randint(1, vocab_size, (2, 10))
-        attention_mask = torch.ones(2, 10)
-        
-        print("Test forward...")
-        output = model(input_ids, attention_mask)
-        print(f"Output shape: {output.shape}")
-        
-        print("\nTest backward...")
-        loss = output.sum()
-        loss.backward()
-        print("✅ Backward réussi!")
+    print(f"{len(embeddings_dict)} embeddings générés!")
+    print("📁 Fichier: medical_embeddings.pkl")"""
+
     
